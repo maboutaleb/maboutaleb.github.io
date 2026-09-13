@@ -77,6 +77,13 @@ html, body {
   padding: 0;
 }
 
+/* Paint the gradient on the root too, so the overscroll/rubber-band region on
+   mobile (above Safari's toolbar) and any sliver beyond body never show white.
+   body's animated gradient sits on top; html only shows through in overscroll. */
+html {
+  background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
+}
+
 body {
   min-height: 100vh;
   color: var(--text);
