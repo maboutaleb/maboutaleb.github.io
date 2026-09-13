@@ -81,7 +81,11 @@ html, body {
    mobile (above Safari's toolbar) and any sliver beyond body never show white.
    body's animated gradient sits on top; html only shows through in overscroll. */
 html {
-  background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
+  /* Solid color first: iOS Safari tints its status bar / toolbar by sampling the
+     page background, and can't sample a gradient — so give it a solid light-blue
+     to sample. The gradient paints on top for the visible page. */
+  background-color: var(--bg-gradient-start);
+  background-image: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
 }
 
 body {
