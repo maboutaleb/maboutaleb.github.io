@@ -89,7 +89,8 @@ html {
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100vh;        /* fallback for browsers without dvh */
+  min-height: 100dvh;       /* dynamic viewport height: fills the true visible area as the toolbar collapses */
   color: var(--text);
   background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
   background-size: 200% 200%;
@@ -102,7 +103,9 @@ body {
      page content flows *under* iOS Safari's translucent bottom toolbar instead of
      the toolbar docking as a solid bar. */
   overflow-x: clip;
-  padding-bottom: 40px;
+  /* max() so non-notch/desktop keep 40px; on iPhones with viewport-fit=cover this
+     clears the home-indicator area once content runs edge-to-edge behind the bar. */
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
 }
 
 @keyframes ambientLiquid {
@@ -345,9 +348,11 @@ code {
    ========================================================================== */
 
 .site-nav {
-  padding: 28px 0;
+  /* With viewport-fit=cover the page runs under the notch; max() keeps the pill
+     clear of the status bar/notch while leaving non-notch screens at 28px/16px. */
+  padding: max(28px, calc(env(safe-area-inset-top) + 8px)) 0 28px;
   position: sticky;
-  top: 16px;
+  top: max(16px, env(safe-area-inset-top));
   z-index: 100;
 }
 
@@ -1094,7 +1099,9 @@ table.data-table th {
 }
 
 .footer {
-  padding: 28px 0 40px;
+  /* bottom padding clears the home-indicator once viewport-fit=cover runs content
+     edge-to-edge; max() keeps 40px on non-notch/desktop screens. */
+  padding: 28px 0 max(40px, env(safe-area-inset-bottom));
   color: var(--text-faint);
   font-size: 0.85rem;
   text-align: center;
