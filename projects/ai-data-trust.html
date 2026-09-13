@@ -33,7 +33,8 @@
       layer, not a finished product.
     </p>
     <div class="case-meta">
-      <span class="tag">OpenMetadata</span>
+      <span class="tag">Alation (enterprise target)</span>
+      <span class="tag">OpenMetadata (prototype)</span>
       <span class="tag">Apache Airflow</span>
       <span class="tag">Docker Compose</span>
       <span class="tag">Next.js</span>
@@ -63,15 +64,16 @@
         <code>dap_monitor</code> proved a trust-scoring methodology for one specific reconciliation
         problem (three revenue sources). This project asks: what would it look like to run that same
         idea — a governed, explainable trust score per table — as a standing platform service
-        instead of a one-off script, wired into a <strong>real metadata catalog</strong> (OpenMetadata)
-        instead of a bespoke CSV pipeline?
+        instead of a one-off script, wired into a <strong>real metadata catalog</strong> — OpenMetadata
+        for this prototype, with the same integration targeting <strong>Alation</strong> (or DataHub) in
+        an enterprise deployment — instead of a bespoke CSV pipeline?
       </p>
     </section>
 
     <section>
       <h2>Planned service architecture</h2>
       <ul>
-        <li><strong>catalog-sync</strong> — syncs table/column metadata into and out of <strong>OpenMetadata</strong>, so trust scores and lineage live next to the same catalog other tools already read from, instead of a second, disconnected source of truth.</li>
+        <li><strong>catalog-sync</strong> — syncs table/column metadata to a metadata catalog via its REST API — <strong>OpenMetadata</strong> in this prototype, <strong>Alation</strong> (or DataHub) in an enterprise environment — so trust scores and lineage live next to the same catalog other tools already read from, instead of a second, disconnected source of truth. The catalog sits behind a thin adapter, so switching vendors is a config/adapter change rather than a rewrite.</li>
         <li><strong>profiler</strong> — scheduled <strong>Airflow DAGs</strong> that profile tables (freshness, volume, null rates, distribution drift) on a recurring cadence rather than on-demand.</li>
         <li><strong>trust-scorer</strong> — computes a per-table trust score from profiling output, generalizing the weighted-component approach (completeness, alignment, stability) proven in <code>dap_monitor</code> beyond a single metric.</li>
         <li><strong>ai-expectations</strong> — uses an LLM to draft candidate data-quality expectations/rules for a table from its observed profile, instead of requiring every rule to be hand-authored.</li>
@@ -80,8 +82,10 @@
       </ul>
       <div class="callout">
         <strong>Orchestration:</strong> <code>docker-compose</code> wires up Postgres, OpenMetadata,
-        and Airflow as the platform substrate, with each trust/AI service as its own container —
-        service boundaries chosen so profiling, scoring, and explanation can evolve independently.
+        and Airflow as the local prototype substrate, with each trust/AI service as its own container —
+        service boundaries chosen so profiling, scoring, and explanation can evolve independently. In a
+        Choice-Hotels-style deployment, the OpenMetadata slot is filled by the managed enterprise
+        catalog (Alation) instead, while the trust/AI services stay the same.
       </div>
     </section>
 
@@ -102,8 +106,8 @@
         emerging semantic layer, metadata, and AI-enablement tooling and surface findings... for
         evaluation," and "support prototyping and iteration on integrated data catalog and data
         fabric capabilities." This project is evidence of that muscle: evaluating where an
-        off-the-shelf catalog (OpenMetadata) ends and where custom trust/AI logic needs to begin, and
-        sketching the service boundaries before writing production code.
+        off-the-shelf catalog (Alation, OpenMetadata, or DataHub) ends and where custom trust/AI logic
+        needs to begin, and sketching the service boundaries before writing production code.
       </p>
     </section>
 
@@ -111,7 +115,8 @@
       <h2>Stack (planned)</h2>
       <div class="stack-list">
         <span class="tag">Python</span>
-        <span class="tag">OpenMetadata</span>
+        <span class="tag">Alation (enterprise catalog)</span>
+        <span class="tag">OpenMetadata (prototype catalog)</span>
         <span class="tag">Apache Airflow</span>
         <span class="tag">Docker / Docker Compose</span>
         <span class="tag">Postgres</span>
