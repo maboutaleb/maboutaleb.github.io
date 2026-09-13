@@ -75,9 +75,12 @@
       <ul>
         <li><strong>catalog-sync</strong> — syncs table/column metadata to a metadata catalog via its REST API — <strong>OpenMetadata</strong> in this prototype, <strong>Alation</strong> (or DataHub) in an enterprise environment — so trust scores and lineage live next to the same catalog other tools already read from, instead of a second, disconnected source of truth. The catalog sits behind a thin adapter, so switching vendors is a config/adapter change rather than a rewrite.</li>
         <li><strong>profiler</strong> — scheduled <strong>Airflow DAGs</strong> that profile tables (freshness, volume, null rates, distribution drift) on a recurring cadence rather than on-demand.</li>
-        <li><strong>trust-scorer</strong> — computes a per-table trust score from profiling output, generalizing the weighted-component approach (completeness, alignment, stability) proven in <code>dap_monitor</code> beyond a single metric.</li>
-        <li><strong>ai-expectations</strong> — uses an LLM to draft candidate data-quality expectations/rules for a table from its observed profile, instead of requiring every rule to be hand-authored.</li>
+        <li><strong>trust-scorer</strong> — scores trust at the <strong>column</strong> level first — where completeness, alignment, and distribution drift actually live — then <strong>rolls those column scores up into a per-table score</strong>, so the weakest columns visibly drag a table down instead of being averaged away. Generalizes the weighted-component approach (completeness, alignment, stability) proven in <code>dap_monitor</code> beyond a single metric, and layers table-level signals (freshness, volume) on top of the column roll-up.</li>
+        <li><strong>lineage-propagation</strong> — reads lineage from the catalog and lets an upstream table's low trust <strong>flow downstream</strong>: a report built on a table that just went 🔴 is flagged as at-risk even before its own profile degrades, so problems surface where they originate instead of where they're finally noticed. This is the "data fabric" angle — trust that follows the data, not just individual tables in isolation.</li>
+        <li><strong>ai-expectations</strong> — uses an LLM to <strong>draft</strong> candidate data-quality expectations/rules for a table from its observed profile, then routes them to a data steward to <strong>approve, edit, or reject</strong> before they take effect — human-in-the-loop, so the AI accelerates rule-writing without silently deciding what "correct" means. Approved rules become the table's <em>certified</em> expectations.</li>
         <li><strong>explanations</strong> — generates plain-language explanations for <em>why</em> a table's trust score changed, so a score isn't just a number without a story.</li>
+        <li><strong>alerting</strong> — watches the score history and notifies a table's owner when it crosses a threshold or trends down over N runs, so a decline is <strong>pushed</strong> to the people who can fix it rather than waiting to be noticed on a dashboard. Turns the platform from a passive viewer into an operational early-warning system.</li>
+        <li><strong>trust-api</strong> — exposes the same scores that <code>catalog-sync</code> writes into the catalog for <strong>programmatic consumption at query time</strong>: an AI application (or a downstream pipeline) asks "can I trust <code>revenue_daily</code> right now?" and gates its own answer on the response — the machine-facing counterpart to the human browsing the catalog. This is the whole point of putting scores <em>in</em> the catalog: one governed source of trust, read by both people and AI.</li>
         <li><strong>dashboard</strong> — a <strong>Next.js</strong> app showing per-table trust scores with color-coded badges (🟢/🟡/🔴) and historical sparkline trends, drilling into a per-table detail view.</li>
       </ul>
       <div class="callout">
@@ -95,8 +98,32 @@
         The homepage renders a card per table with a score badge and a compact SVG sparkline of the
         score's recent history — the intent is that a governance reviewer can scan dozens of tables
         at a glance and immediately see which ones are trending down, not just which ones are
-        currently red. Each card links to a per-table detail page for the full history and drivers.
+        currently red. Each card links to a per-table detail page that breaks the score back down to
+        <strong>the column level</strong> — so a reviewer sees not just that a table is 🟡, but exactly
+        which columns (and which signal: completeness, drift, freshness) pulled it there — alongside the
+        full score history and drivers.
       </p>
+    </section>
+
+    <section>
+      <h2>The consumption side: one trust signal, three projects</h2>
+      <p>
+        The point of scoring trust isn't the score — it's what <em>consumes</em> it. This platform is
+        the scaled-up version of a pattern the other two projects already prove in miniature:
+      </p>
+      <ul>
+        <li><code>dap_monitor</code> gates a reconciliation on a trust score before it's published.</li>
+        <li>The Warehouse Catalog attaches a confidence score to every AI answer, so an ungrounded
+          reply is visibly Low rather than confidently wrong.</li>
+        <li>This platform generalizes that: <strong>the <code>trust-api</code> lets any AI consumer
+          check a table's trust before it answers</strong> — the same "don't present ungoverned data
+          as fact" discipline, now available warehouse-wide from the governed catalog.</li>
+      </ul>
+      <div class="callout">
+        <strong>The thesis:</strong> a semantic layer isn't finished when data is documented — it's
+        finished when every consumer, human <em>or</em> AI, can tell how much to trust what it's
+        reading, from one governed source. These three projects are the same idea at three scales.
+      </div>
     </section>
 
     <section>
