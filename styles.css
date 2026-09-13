@@ -97,7 +97,11 @@ body {
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  /* `clip` (not `hidden`) still hides the off-screen background orbs but does NOT
+     turn <body> into a scroll container — so the document stays the scroller and
+     page content flows *under* iOS Safari's translucent bottom toolbar instead of
+     the toolbar docking as a solid bar. */
+  overflow-x: clip;
   padding-bottom: 40px;
 }
 
