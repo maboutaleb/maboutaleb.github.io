@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Editor backups
+*.bak
+*~
+*.orig
+
+# Python (local preview server artifacts)
+__pycache__/
+*.pyc

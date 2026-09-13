@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Enabled Warehouse Catalog — Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css?v=18">
+</head>
+<body>
+
+<div class="bg-orb bg-orb-1" aria-hidden="true"></div>
+<div class="bg-orb bg-orb-2" aria-hidden="true"></div>
+<div class="bg-orb bg-orb-3" aria-hidden="true"></div>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="../index.html">← Portfolio</a>
+    <a class="back" href="../index.html">All projects</a>
+  </div>
+</nav>
+
+<header class="case-header">
+  <div class="wrap">
+    <span class="tier product">Product-scoped</span>
+    <h1>AI-Enabled Warehouse Documentation Generator</h1>
+    <p class="subtitle">
+      Turns raw query-history logs into a governed, usage-ranked data catalog, then lets an LLM
+      answer analyst questions <em>grounded only in that catalog</em> — with a visible confidence
+      score based on how well its citations actually match real tables.
+    </p>
+    <div class="case-meta">
+      <span class="tag">sqlglot</span>
+      <span class="tag">DuckDB</span>
+      <span class="tag">Claude (Anthropic API / Bedrock)</span>
+      <span class="tag">Streamlit</span>
+      <span class="tag">Redshift / Postgres query logs</span>
+    </div>
+  </div>
+</header>
+
+<main class="case-body">
+  <div class="wrap">
+
+    <section>
+      <h2>The problem</h2>
+      <p>
+        Nobody writes documentation for a data warehouse fast enough for it to stay accurate — and
+        the JD for this role is explicit about the stakes: generative AI applications need
+        <strong>certified business metadata</strong>, not just raw table names, or they'll produce
+        confidently wrong answers about metrics they were never taught to trust.
+      </p>
+      <p>
+        The fix implemented here isn't "write more docs by hand" — it's <strong>derive the catalog
+        from how the warehouse is actually used</strong>, enrich it with an LLM, and then force any
+        AI-facing Q&amp;A to stay grounded in that same catalog instead of hallucinating.
+      </p>
+    </section>
+
+    <section>
+      <h2>Pipeline: five stages, one artifact</h2>
+      <ol class="pipeline-steps">
+        <li><strong>Ingest</strong> — load raw query-history CSV (schema, table, user, timestamp, SQL text) from the warehouse's system tables into DuckDB.</li>
+        <li><strong>Parse SQL</strong> — run every historical query through <code>sqlglot</code> to extract column-level usage roles: which columns were <em>selected</em>, which were used to <em>filter</em>, and which were used to <em>join</em>.</li>
+        <li><strong>Aggregate</strong> — roll parsed usage up per table: query count, distinct users, top columns by role, and which tables most often co-occur in the same query.</li>
+        <li><strong>Emit <code>catalog.json</code></strong> — one governed artifact per table: usage stats, top columns by role, co-occurring tables, and real example queries.</li>
+        <li><strong>LLM enrichment</strong> — Claude Sonnet assigns each table a domain label, writes a purpose/audience/use-case summary, and generates FAQ cards per domain — all cached by SHA-256 hash of the prompt so re-runs don't re-spend tokens.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Usage-ranked, not alphabetical</h2>
+      <p>
+        The catalog isn't a static schema dump — it's ordered and weighted by <strong>how the
+        warehouse is actually queried</strong>: query count, distinct users, and table co-occurrence
+        surface the tables analysts actually rely on, and which ones are commonly joined together.
+        Only the top-N most-used tables are sent to the LLM for enrichment, keeping the governed
+        catalog focused on what matters instead of documenting every unused table equally.
+      </p>
+    </section>
+
+    <section>
+      <h2>Grounded Q&amp;A with a visible confidence score</h2>
+      <p>
+        The Streamlit app's chat tab doesn't just answer questions — it retrieves the most relevant
+        tables from the catalog first (scored by name/column match and boosted by usage popularity),
+        answers using only that context, and requires the model to cite which tables it actually used.
+      </p>
+      <p>
+        Those citations are then checked against the <strong>entire catalog index</strong> — every
+        table in <code>catalog.json</code>, not just the handful retrieved for this question: a citation
+        that resolves to a real catalogued table counts as <strong>grounded</strong>; one that doesn't
+        is flagged as <strong>ungrounded</strong>. The score combines two signals so it rewards answers
+        that are both real and well-supported:
+      </p>
+      <div class="formula">confidence = min(1, 0.7 × grounded_ratio + 0.3 × (volume_weight × 10))
+  grounded_ratio = cited tables found in catalog ÷ tables cited
+  volume_weight  = query_count of cited tables ÷ query_count of whole catalog
+  ≥ 0.8 → 🟢 High   ≥ 0.5 → 🟡 Medium   else → 🔴 Low</div>
+      <p>
+        The grounding ratio is the dominant term, but the volume weight is what makes the badge
+        honest about <em>coverage</em>: an answer that cites a real-but-rarely-queried table lands at
+        Medium, while one grounded in the warehouse's most-used tables reaches High. And when the
+        catalog simply doesn't cover a question, the system prompt tells the model to cite nothing
+        (<code>&lt;cites&gt;&lt;/cites&gt;</code>) — which the scorer reads as Low, i.e. an explicit
+        "not answerable from warehouse evidence" rather than a confident guess.
+      </p>
+      <div class="callout">
+        <strong>This is the AI-enablement pattern the role calls for:</strong> governed business
+        context feeding an AI consumer, with an explicit trust signal attached to every answer —
+        not a chatbot bolted on top of ungoverned tables.
+      </div>
+    </section>
+
+    <section>
+      <h2>What it produced on real query history</h2>
+      <p>
+        Run against an actual warehouse's system query-history log, the pipeline turned raw usage into
+        a governed, usage-ranked catalog end to end:
+      </p>
+      <table class="data-table">
+        <tr><th>Stage output</th><th>Result</th></tr>
+        <tr><td>Raw query-history rows ingested</td><td>463,960</td></tr>
+        <tr><td>Distinct tables catalogued</td><td>372, across 53 schemas</td></tr>
+        <tr><td>Tables sent to the LLM for enrichment</td><td>Top 30 by usage (the long tail is left un-enriched by design)</td></tr>
+        <tr><td>FAQ cards generated</td><td>8 domains × 5 cards</td></tr>
+        <tr><td>FAQ-card citations that were ungrounded</td><td><strong>0 of 61</strong> — every generated citation resolved to a real catalogued table</td></tr>
+      </table>
+      <p>
+        The usage distribution is heavily skewed — the single most-queried table appears in 5,640
+        distinct queries while the median table appears in just one — which is exactly why the
+        confidence score weights citations by query volume rather than treating every table as equally
+        important.
+      </p>
+    </section>
+
+    <section>
+      <h2>Governance details</h2>
+      <ul>
+        <li>Supports both the direct <strong>Anthropic API</strong> and <strong>Amazon Bedrock</strong> as interchangeable LLM backends via one config flag — no code change to switch providers.</li>
+        <li>Every LLM call is <strong>content-hashed and disk-cached</strong>, so the enrichment step is idempotent and reproducible — re-running the pipeline doesn't silently change past documentation or burn tokens for identical input.</li>
+        <li>Enrichment output (domain, summary, FAQ) is written back into the same <code>catalog.json</code> artifact the retrieval layer reads from, so the catalog is the single governed source for both the browsing UI and the chat.</li>
+        <li>Parsing failures are logged rather than silently dropped, so gaps in SQL-based lineage extraction are visible and auditable.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Stack</h2>
+      <div class="stack-list">
+        <span class="tag">Python</span>
+        <span class="tag">sqlglot</span>
+        <span class="tag">DuckDB</span>
+        <span class="tag">Anthropic Claude (Sonnet)</span>
+        <span class="tag">Amazon Bedrock</span>
+        <span class="tag">Streamlit</span>
+        <span class="tag">boto3</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Why it matters for a semantic layer</h2>
+      <p>
+        This is a working, end-to-end demonstration of the "AI Enablement &amp; Trusted Consumption"
+        half of the role: deriving governed business context directly from real usage, keeping it
+        current instead of hand-written and stale, and making sure every AI consumer of that context
+        exposes its own confidence rather than presenting an ungrounded answer as fact.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="wrap">Case study 2 of 3</div>
+</footer>
+
+<script src="../liquid-ui.js?v=18" defer></script>
+</body>
+</html>

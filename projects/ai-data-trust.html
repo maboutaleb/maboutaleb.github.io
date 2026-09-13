@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Data Trust Platform — Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css?v=18">
+</head>
+<body>
+
+<div class="bg-orb bg-orb-1" aria-hidden="true"></div>
+<div class="bg-orb bg-orb-2" aria-hidden="true"></div>
+<div class="bg-orb bg-orb-3" aria-hidden="true"></div>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="../index.html">← Portfolio</a>
+    <a class="back" href="../index.html">All projects</a>
+  </div>
+</nav>
+
+<header class="case-header">
+  <div class="wrap">
+    <span class="tier exploration">Exploration — architecture prototype, no live demo yet</span>
+    <h1>AI Data Trust Platform</h1>
+    <p class="subtitle">
+      A microservices architecture sketch for a platform-level trust layer: sync a real data
+      catalog, profile tables on a schedule, score and explain trust per table with an LLM, and
+      surface it all on a dashboard with historical trend lines — the shape of a scaled-up semantic
+      layer, not a finished product.
+    </p>
+    <div class="case-meta">
+      <span class="tag">OpenMetadata</span>
+      <span class="tag">Apache Airflow</span>
+      <span class="tag">Docker Compose</span>
+      <span class="tag">Next.js</span>
+      <span class="tag">Postgres</span>
+    </div>
+  </div>
+</header>
+
+<main class="case-body">
+  <div class="wrap">
+
+    <section>
+      <h2>Honest status</h2>
+      <p>
+        This project is included deliberately as an <strong>architecture and roadmap piece</strong>,
+        not a working demo. It's early — services are scaffolded, the orchestration is defined in
+        <code>docker-compose</code>, but it hasn't been run end-to-end as a live system yet. It's here
+        because the design decisions it captures are directly relevant to this role's "prototyping
+        and iteration on integrated data catalog and data fabric capabilities" responsibility, even
+        before the implementation is finished.
+      </p>
+    </section>
+
+    <section>
+      <h2>The idea</h2>
+      <p>
+        <code>dap_monitor</code> proved a trust-scoring methodology for one specific reconciliation
+        problem (three revenue sources). This project asks: what would it look like to run that same
+        idea — a governed, explainable trust score per table — as a standing platform service
+        instead of a one-off script, wired into a <strong>real metadata catalog</strong> (OpenMetadata)
+        instead of a bespoke CSV pipeline?
+      </p>
+    </section>
+
+    <section>
+      <h2>Planned service architecture</h2>
+      <ul>
+        <li><strong>catalog-sync</strong> — syncs table/column metadata into and out of <strong>OpenMetadata</strong>, so trust scores and lineage live next to the same catalog other tools already read from, instead of a second, disconnected source of truth.</li>
+        <li><strong>profiler</strong> — scheduled <strong>Airflow DAGs</strong> that profile tables (freshness, volume, null rates, distribution drift) on a recurring cadence rather than on-demand.</li>
+        <li><strong>trust-scorer</strong> — computes a per-table trust score from profiling output, generalizing the weighted-component approach (completeness, alignment, stability) proven in <code>dap_monitor</code> beyond a single metric.</li>
+        <li><strong>ai-expectations</strong> — uses an LLM to draft candidate data-quality expectations/rules for a table from its observed profile, instead of requiring every rule to be hand-authored.</li>
+        <li><strong>explanations</strong> — generates plain-language explanations for <em>why</em> a table's trust score changed, so a score isn't just a number without a story.</li>
+        <li><strong>dashboard</strong> — a <strong>Next.js</strong> app showing per-table trust scores with color-coded badges (🟢/🟡/🔴) and historical sparkline trends, drilling into a per-table detail view.</li>
+      </ul>
+      <div class="callout">
+        <strong>Orchestration:</strong> <code>docker-compose</code> wires up Postgres, OpenMetadata,
+        and Airflow as the platform substrate, with each trust/AI service as its own container —
+        service boundaries chosen so profiling, scoring, and explanation can evolve independently.
+      </div>
+    </section>
+
+    <section>
+      <h2>What the dashboard is meant to show</h2>
+      <p>
+        The homepage renders a card per table with a score badge and a compact SVG sparkline of the
+        score's recent history — the intent is that a governance reviewer can scan dozens of tables
+        at a glance and immediately see which ones are trending down, not just which ones are
+        currently red. Each card links to a per-table detail page for the full history and drivers.
+      </p>
+    </section>
+
+    <section>
+      <h2>Why include an unfinished project</h2>
+      <p>
+        Because the role isn't just "operate an existing semantic layer" — it's also "research
+        emerging semantic layer, metadata, and AI-enablement tooling and surface findings... for
+        evaluation," and "support prototyping and iteration on integrated data catalog and data
+        fabric capabilities." This project is evidence of that muscle: evaluating where an
+        off-the-shelf catalog (OpenMetadata) ends and where custom trust/AI logic needs to begin, and
+        sketching the service boundaries before writing production code.
+      </p>
+    </section>
+
+    <section>
+      <h2>Stack (planned)</h2>
+      <div class="stack-list">
+        <span class="tag">Python</span>
+        <span class="tag">OpenMetadata</span>
+        <span class="tag">Apache Airflow</span>
+        <span class="tag">Docker / Docker Compose</span>
+        <span class="tag">Postgres</span>
+        <span class="tag">Next.js / TypeScript</span>
+        <span class="tag">LLM-generated expectations &amp; explanations</span>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="wrap">Case study 3 of 3</div>
+</footer>
+
+<script src="../liquid-ui.js?v=18" defer></script>
+</body>
+</html>

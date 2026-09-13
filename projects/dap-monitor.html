@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Source Trust Pipeline — Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css?v=18">
+</head>
+<body>
+
+<div class="bg-orb bg-orb-1" aria-hidden="true"></div>
+<div class="bg-orb bg-orb-2" aria-hidden="true"></div>
+<div class="bg-orb bg-orb-3" aria-hidden="true"></div>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="../index.html">← Portfolio</a>
+    <a class="back" href="../index.html">All projects</a>
+  </div>
+</nav>
+
+<header class="case-header">
+  <div class="wrap">
+    <span class="tier certified">Enterprise-certified</span>
+    <h1>Source Trust Pipeline</h1>
+    <p class="subtitle">
+      A governed metric that reconciles three independent revenue and rooms sources per property
+      per month, scores how much to trust the resulting number, and flags exactly where and why
+      the sources disagree.
+    </p>
+    <div class="case-meta">
+      <span class="tag">Python / pandas</span>
+      <span class="tag">Redshift</span>
+      <span class="tag">Statistical anomaly detection</span>
+      <span class="tag">Versioned pipeline (v2→v4)</span>
+      <span class="tag">Unit tested</span>
+    </div>
+  </div>
+</header>
+
+<main class="case-body">
+  <div class="wrap">
+
+    <section>
+      <h2>The problem</h2>
+      <p>
+        Property-level revenue and rooms figures were produced independently by three systems —
+        <strong>Reservation</strong>, <strong>Consumed-stay</strong>, and <strong>Performance</strong>
+        — and they didn't always agree. Nobody had a single, defensible answer to "which number is
+        right, and how much should I trust it?" Without a governed definition, every team downstream
+        was left to invent its own reconciliation logic, or to just pick a source and hope.
+      </p>
+      <p>
+        This is exactly the kind of conflicting-logic problem a governed semantic layer exists to
+        solve: instead of three ungoverned numbers, produce <em>one</em> certified trust signal per
+        property per month, with a transparent, testable, version-controlled definition behind it.
+      </p>
+    </section>
+
+    <section>
+      <h2>Approach</h2>
+      <p>
+        The pipeline ingests one row per <code>property_id</code> + <code>stay_month</code> with all
+        three sources' revenue, rooms, and presence flags, and produces four governed outputs:
+      </p>
+      <ul>
+        <li><strong>monthly_source_comparison</strong> — per-property, per-month pairwise differences, consensus values, suspected source, and rolling statistics.</li>
+        <li><strong>issue_periods</strong> — consecutive alert episodes (fast spikes, slow drifts, missing sources) collapsed into month ranges rather than raw daily noise.</li>
+        <li><strong>property_trust_summary</strong> / <strong>_readable</strong> — one row per property for the full report period, with an overall trust score, completeness, alignment, and current status.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>Metric definition, not a one-off script.</strong> Every comparison uses one symmetric
+        percentage-difference formula, one alignment tolerance, and one historical-baseline window —
+        defined once, tested, and reused everywhere in the pipeline, exactly like a governed metric
+        in a semantic layer should be.
+      </div>
+
+      <div class="formula" style="margin-top:16px;">2 × ABS(source_a − source_b)
+─────────────────────────────
+   ABS(source_a) + ABS(source_b)
+
+0%   → exact match
+5%   → default alignment tolerance
+200% → one source is zero, the other is not</div>
+    </section>
+
+    <section>
+      <h2>Anomaly detection: fast spikes vs. slow drift</h2>
+      <p>
+        Rather than a single static threshold, each property's current month is compared against its
+        own trailing 12-month baseline using a z-score, so "normal disagreement" is defined
+        per-property, not globally:
+      </p>
+      <ul>
+        <li><strong>Fast spike</strong> — a sudden, extreme disagreement: difference &gt; 5% <em>and</em> z-score ≥ 6 in a single month.</li>
+        <li><strong>Slow drift</strong> — a smaller but persistent disagreement: 3 consecutive months each &gt; 5% and z-score ≥ 2.</li>
+        <li><strong>Source missing</strong> — a source stops reporting for a property/month entirely.</li>
+      </ul>
+      <p>
+        These episodes are what actually get written to <code>issue_periods</code> — collapsed into
+        start/end months and durations, so an analyst sees "Property 4021 has had a slow revenue
+        drift since March," not 40 rows of daily noise.
+      </p>
+    </section>
+
+    <section>
+      <h2>The trust score</h2>
+      <p>A single weighted score per property, built from four governed components:</p>
+      <table class="data-table">
+        <thead><tr><th>Component</th><th>Weight</th><th>What it measures</th></tr></thead>
+        <tbody>
+          <tr><td>Revenue alignment</td><td>35%</td><td>% of evaluable months where revenue is within tolerance</td></tr>
+          <tr><td>Rooms alignment</td><td>30%</td><td>% of evaluable months where rooms are within tolerance</td></tr>
+          <tr><td>Completeness</td><td>20%</td><td>Average presence % across all three sources</td></tr>
+          <tr><td>Stability</td><td>15%</td><td>% of months with no fast-spike or slow-drift condition</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The score rolls up into a plain-language <code>trust_rating</code> — <em>EXCELLENT, GOOD,
+        REVIEW, MATERIAL_CONCERN, SEVERE_CONCERN</em> — plus a <code>current_status</code> field
+        (<em>ACTIVE_ISSUE, LOW_TRUST, HEALTHY_WITH_HISTORY, HEALTHY</em>) so non-technical
+        stakeholders can act on it without reading a data dictionary.
+      </p>
+    </section>
+
+    <section>
+      <h2>Suspected-source logic</h2>
+      <p>
+        When two sources agree and a third doesn't, the pipeline names the outlier — without
+        overclaiming it's "wrong." If all three disagree, or fewer than two sources are available,
+        it returns an explicit <code>UNRESOLVED_THREE_WAY</code>, <code>UNRESOLVED_PAIR</code>, or
+        <code>INSUFFICIENT_SOURCES</code> classification rather than guessing.
+      </p>
+      <p>
+        Example: Reservation = 100, Consumed = 102, Performance = 160 → Reservation and Consumed
+        form the within-tolerance consensus, so Performance is flagged as the suspected outlier.
+      </p>
+    </section>
+
+    <section>
+      <h2>Governance &amp; change management</h2>
+      <ul>
+        <li>Iterated through <strong>v2 → v4</strong> as detection rules were refined, each version keeping backward-compatible outputs and its own README + changelog-style notes.</li>
+        <li>A dedicated <strong>data dictionary</strong> defines every exported column, every alert rule, and every counting identity (e.g. <code>problematic_months = alert_affected_months + outside_tolerance_only_months</code>) so the metric is auditable without reading the code.</li>
+        <li><strong>Unit tests</strong> cover the pipeline logic directly, and configurable thresholds (tolerance %, baseline window, sigma cutoffs) are exposed as parameters instead of hard-coded, so business owners can tune the definition without a code change.</li>
+        <li>Designed to run directly against a <strong>Redshift</strong> dataframe as the input, matching how the metric would actually be scheduled in production.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Stack</h2>
+      <div class="stack-list">
+        <span class="tag">Python</span>
+        <span class="tag">pandas</span>
+        <span class="tag">Amazon Redshift</span>
+        <span class="tag">pytest</span>
+        <span class="tag">CSV / Parquet I/O</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Why it matters for governed metrics</h2>
+      <p>
+        This is a working example of the exact lifecycle a semantic layer needs to enforce: a
+        conflicting, ungoverned metric (property revenue) gets one certified definition, backed by
+        tests, documented thresholds, and a change-managed version history — with an explicit,
+        machine-readable confidence signal attached, instead of a silent number nobody can audit.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="wrap">Case study 1 of 3</div>
+</footer>
+
+<script src="../liquid-ui.js?v=18" defer></script>
+</body>
+</html>
