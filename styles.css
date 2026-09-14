@@ -91,6 +91,7 @@ html {
 }
 
 body {
+  isolation: isolate;
   min-height: 100vh;        /* fallback for browsers without newer viewport units */
   min-height: 100svh;       /* stable baseline while the toolbar is expanded */
   min-height: 100dvh;       /* grows to the large viewport as the toolbar collapses, so the gradient reaches the true bottom edge */
@@ -127,7 +128,7 @@ body {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 
 .bg-orb {

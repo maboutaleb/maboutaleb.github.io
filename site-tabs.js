@@ -1,7 +1,7 @@
 /**
- * Top-level home-page tabs: Overview / Live demos / Case studies.
+ * Top-level home-page tabs: Overview / Live demos / Projects.
  * Only one zone shows at a time. Nav links and location.hash route to a tab
- * (#overview, #demos, #cases) so deep links and the nav bar both work.
+ * (#overview, #demos, #projects) so deep links and the nav bar both work.
  */
 (function () {
   const tabs = Array.from(document.querySelectorAll("[data-site-tab]"));
