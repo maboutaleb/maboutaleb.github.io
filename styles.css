@@ -81,16 +81,19 @@ html, body {
    mobile (above Safari's toolbar) and any sliver beyond body never show white.
    body's animated gradient sits on top; html only shows through in overscroll. */
 html {
-  /* Solid color first: iOS Safari tints its status bar / toolbar by sampling the
-     page background, and can't sample a gradient — so give it a solid light-blue
-     to sample. The gradient paints on top for the visible page. */
-  background-color: var(--bg-gradient-start);
+  /* Solid color first: iOS Safari tints its bars AND fills the bottom safe-area
+     strip by sampling this flat background-color (it ignores the gradient image).
+     The visible "solid strap" lives at the BOTTOM of the page, where the gradient
+     is --bg-gradient-end — so sample that shade, not the top color, so any flat
+     fill Safari paints matches the gradient's bottom edge instead of clashing. */
+  background-color: var(--bg-gradient-end);
   background-image: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
 }
 
 body {
-  min-height: 100vh;        /* fallback for browsers without dvh */
-  min-height: 100dvh;       /* dynamic viewport height: fills the true visible area as the toolbar collapses */
+  min-height: 100vh;        /* fallback for browsers without newer viewport units */
+  min-height: 100svh;       /* stable baseline while the toolbar is expanded */
+  min-height: 100dvh;       /* grows to the large viewport as the toolbar collapses, so the gradient reaches the true bottom edge */
   color: var(--text);
   background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
   background-size: 200% 200%;
@@ -98,14 +101,15 @@ body {
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  /* `clip` (not `hidden`) still hides the off-screen background orbs but does NOT
-     turn <body> into a scroll container — so the document stays the scroller and
-     page content flows *under* iOS Safari's translucent bottom toolbar instead of
-     the toolbar docking as a solid bar. */
-  overflow-x: clip;
-  /* max() so non-notch/desktop keep 40px; on iPhones with viewport-fit=cover this
-     clears the home-indicator area once content runs edge-to-edge behind the bar. */
-  padding-bottom: max(40px, env(safe-area-inset-bottom));
+  /* No overflow-x needed here: the off-screen background orbs are clipped by their
+     own .bg-orbs wrapper (overflow:hidden), and all real content sits in .wrap
+     (max-width, centered), so nothing overflows horizontally. Keeping overflow
+     off <body>/<html> lets the document stay the natural scroller. */
+  /* No bottom gutter on <body>: a reserved padding-bottom here is background-only
+     space that becomes the "solid strap" behind iOS Safari's collapsed capsule.
+     Let the gradient bleed to the true bottom edge; the footer carries the
+     home-indicator clearance (env(safe-area-inset-bottom)) inside its own padding. */
+  padding-bottom: 0;
 }
 
 @keyframes ambientLiquid {
@@ -114,9 +118,20 @@ body {
   100% { background-position: 0% 50%; }
 }
 
-/* Floating ambient background orbs */
-.bg-orb {
+/* Floating ambient background orbs.
+   The orbs bleed off every edge on purpose; this fixed, full-viewport wrapper
+   clips them (overflow:hidden) so they never create horizontal overflow, which
+   keeps the clip off <body>/<html> and leaves the document freely scrollable. */
+.bg-orbs {
   position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-orb {
+  position: absolute;
   border-radius: 50%;
   filter: blur(50px);
   z-index: 0;
@@ -961,7 +976,7 @@ code {
 }
 
 .case-body {
-  padding: 24px 0 64px;
+  padding: 24px 0 8px;
 }
 
 .case-body section {
@@ -1099,9 +1114,16 @@ table.data-table th {
 }
 
 .footer {
-  /* bottom padding clears the home-indicator once viewport-fit=cover runs content
-     edge-to-edge; max() keeps 40px on non-notch/desktop screens. */
-  padding: 28px 0 max(40px, env(safe-area-inset-bottom));
+  /* The footer is the last element, so its background is what fills the bottom
+     edge / safe-area strip behind Safari's collapsed capsule — give it the
+     gradient's bottom color so that strip is real page content, not Safari's flat
+     fill. Bottom padding = base 40px + the home-indicator inset, keeping the text
+     above the capsule while the background still bleeds to the physical edge. */
+  padding: 8px 0 calc(16px + env(safe-area-inset-bottom));
+  /* Fade from transparent (blends with the body gradient) down to the gradient's
+     bottom color, so the strip behind the capsule is real page content with no
+     visible seam where the footer starts. */
+  background: linear-gradient(to bottom, transparent, var(--bg-gradient-end) 60%);
   color: var(--text-faint);
   font-size: 0.85rem;
   text-align: center;
@@ -2048,4 +2070,10 @@ input[type="range"] {
   * {
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Temporary test for Safari viewport clipping */
+html,
+body {
+  overflow: visible !important;
 }
